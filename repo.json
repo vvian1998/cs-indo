@@ -2,8 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/recloudstream/cloudstream/master/repo-schema.json",
   "name": "CS Indo",
   "description": "Koleksi extension streaming Indonesia - Anime, Drama Asia, Film",
-  "author": "cs-indo",
-  "iconUrl": "https://raw.githubusercontent.com/your-repo/cs-indo/main/icon.png",
-  "website": "https://github.com/your-repo/cs-indo",
+  "author": "vvian1998",
+  "iconUrl": "https://raw.githubusercontent.com/vvian1998/cs-indo/main/.github/icon.png",
+  "website": "https://github.com/vvian1998/cs-indo",
   "version": 1
 }

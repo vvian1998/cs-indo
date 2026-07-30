@@ -25,25 +25,9 @@ jobs:
         run: |
           mkdir -p build-artifacts
           find . -name "*.cs3" -exec cp {} build-artifacts/ \;
-          # Update plugins.json with correct file sizes
-          for f in build-artifacts/*.cs3; do
-            name=$(basename "$f" .cs3)
-            size=$(stat --format=%s "$f")
-            python3 -c "
-import json
-with open('plugins.json') as fp:
-    data = json.load(fp)
-for entry in data:
-    if entry['internalName'] == '$name':
-        entry['fileSize'] = $size
-with open('plugins.json', 'w') as fp:
-    json.dump(data, fp, indent=4)
-    fp.write('\n')
-"
-          done
+          ls -la build-artifacts/
           cp plugins.json build-artifacts/
           cp repo.json build-artifacts/
-          ls -la build-artifacts/
       - name: Deploy to builds branch
         uses: peaceiris/actions-gh-pages@v4
         with:

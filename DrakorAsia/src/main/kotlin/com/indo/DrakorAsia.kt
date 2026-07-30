@@ -3,7 +3,7 @@ package com.indo
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.newExtractorLink
-import java.util.Base64
+import android.util.Base64
 
 class DrakorAsia : MainAPI() {
     override var mainUrl = "https://drakorid.co"
@@ -20,21 +20,19 @@ class DrakorAsia : MainAPI() {
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val url = if (page == 1) request.data else {
-            if (request.data.contains("/list/")) {
-                request.data.replace(Regex("/list/\\d+"), "/list/$page")
-            } else null
-        } ?: return newHomePageResponse(request.name, emptyList())
+        val url = if (request.data.contains("/list/")) {
+            request.data.replace(Regex("/list/\\d+"), "/list/$page")
+        } else request.data
 
         val document = app.get(url).document
-        val items = document.select("a[href*=/nonton/]").mapNotNull { a ->
+        val items = document.select("article.movie-list-card a.movie-list-card__media").mapNotNull { a ->
             val href = a.attr("href").ifBlank { null } ?: return@mapNotNull null
-            val title = a.attr("title").ifBlank {
-                a.selectFirst("h3, h4, strong, span")?.text()?.trim()
-                    ?: return@mapNotNull null
-            }
-            val poster = a.selectFirst("img")?.attr("src")?.ifBlank { null }
-            newMovieSearchResponse(title, fixUrl(href), TvType.Movie) {
+            val img = a.selectFirst("img.movie-list-card__img")
+            val title = img?.attr("alt")?.ifBlank { null }
+                ?: a.parent()?.selectFirst(".movie-list-card__title")?.text()?.trim()
+                ?: return@mapNotNull null
+            val poster = img?.attr("src")?.ifBlank { null }
+            newMovieSearchResponse(title, href, TvType.Movie) {
                 this.posterUrl = poster
             }
         }.distinctBy { it.url }
@@ -44,13 +42,14 @@ class DrakorAsia : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse> {
         val document = app.get("$mainUrl/search?q=$query").document
-        return document.select("a[href*=/nonton/]").mapNotNull { a ->
+        return document.select("article.movie-list-card a.movie-list-card__media").mapNotNull { a ->
             val href = a.attr("href").ifBlank { null } ?: return@mapNotNull null
-            val title = a.attr("title").ifBlank {
-                a.text().trim().ifBlank { null } ?: return@mapNotNull null
-            }
-            val poster = a.selectFirst("img")?.attr("src")?.ifBlank { null }
-            newMovieSearchResponse(title, fixUrl(href), TvType.Movie) {
+            val img = a.selectFirst("img.movie-list-card__img")
+            val title = img?.attr("alt")?.ifBlank { null }
+                ?: a.parent()?.selectFirst(".movie-list-card__title")?.text()?.trim()
+                ?: return@mapNotNull null
+            val poster = img?.attr("src")?.ifBlank { null }
+            newMovieSearchResponse(title, href, TvType.Movie) {
                 this.posterUrl = poster
             }
         }.distinctBy { it.url }
@@ -68,13 +67,15 @@ class DrakorAsia : MainAPI() {
         val poster = document.selectFirst("meta[property=og:image]")?.attr("content")?.ifBlank { null }
         val description = document.selectFirst("meta[property=og:description]")?.attr("content")?.ifBlank { null }
         val year = Regex("\\b(19\\d{2}|20\\d{2})\\b").find(title)?.groupValues?.getOrNull(1)?.toIntOrNull()
-
-        val mTipe = Regex("var mTipe\\s*=\\s*(\\d+)").find(html)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 1
         val tags = document.select("a[href*=/kategori/]").map { it.text() }.filter { it.isNotBlank() }
 
+        val mTipe = Regex("var mTipe\\s*=\\s*(\\d+)").find(html)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 1
         val isSeries = mTipe == 2
+
         return if (isSeries) {
-            val episodes = (1..100).map { ep ->
+            val totalEp = document.selectFirst(".episode-select-sub")?.text()
+                ?.let { Regex("(\\d+)").find(it)?.groupValues?.getOrNull(1)?.toIntOrNull() } ?: 16
+            val episodes = (1..totalEp).map { ep ->
                 newEpisode("$url?ep=$ep") {
                     name = "Episode $ep"
                     episode = ep
@@ -108,8 +109,9 @@ class DrakorAsia : MainAPI() {
         val watchUrl = "$mainUrl/watch-tonton/$slug/$epNum"
         val html = app.get(watchUrl).text
 
-        val videoUrl = Regex("""src="[^"]*bunny\.php[^"]*\bv=([a-zA-Z0-9+/=]+)""").find(html)?.groupValues?.getOrNull(1)
-            ?.let { runCatching { String(Base64.getDecoder().decode(it)) }.getOrNull() }
+        val videoUrl = Regex("""src="[^"]*bunny\.php[^"]*\bv=([a-zA-Z0-9+/=]+)""").find(html)
+            ?.groupValues?.getOrNull(1)
+            ?.let { runCatching { String(Base64.decode(it, Base64.DEFAULT)) }.getOrNull() }
 
         if (videoUrl != null) {
             callback(newExtractorLink("DrakorAsia", "HD", videoUrl) {
@@ -119,10 +121,5 @@ class DrakorAsia : MainAPI() {
         }
 
         return true
-    }
-
-    private fun fixUrl(url: String): String {
-        if (url.startsWith("http")) return url
-        return "$mainUrl$url"
     }
 }

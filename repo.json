@@ -1,0 +1,8 @@
+{
+  "name": "CS Indo",
+  "description": "Koleksi extension streaming Indonesia - Anime, Film, Drama Asia",
+  "manifestVersion": 1,
+  "pluginLists": [
+    "https://raw.githubusercontent.com/vvian1998/cs-indo/main/plugins.json"
+  ]
+}

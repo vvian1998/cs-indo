@@ -2,8 +2,8 @@ package com.indo
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.newExtractorLink
-import com.lagradost.cloudstream3.utils.Qualities
 import android.util.Base64
 
 class DrakorAsia : MainAPI() {
@@ -110,15 +110,20 @@ class DrakorAsia : MainAPI() {
         val watchUrl = "$mainUrl/watch-tonton/$slug/$epNum"
         val html = app.get(watchUrl).text
 
-        val videoUrl = Regex("""src="[^"]*bunny\.php[^"]*\bv=([a-zA-Z0-9+/=]+)""").find(html)
+        val hlsUrl = Regex("""src="[^"]*bunny\.php[^"]*\bv=([a-zA-Z0-9+/=]+)""").find(html)
             ?.groupValues?.getOrNull(1)
             ?.let { runCatching { String(Base64.decode(it, Base64.DEFAULT)) }.getOrNull() }
 
-        if (videoUrl != null) {
-            callback(newExtractorLink("DrakorAsia", "HD", videoUrl) {
+        if (hlsUrl != null) {
+            callback(newExtractorLink("DrakorAsia", "HD", hlsUrl, type = ExtractorLinkType.M3U8) {
                 this.referer = watchUrl
-                this.quality = Qualities.P1080.value
             })
+            val playlistUrl = hlsUrl.replace("mono.m3u8", "playlist.m3u8")
+            if (playlistUrl != hlsUrl) {
+                callback(newExtractorLink("DrakorAsia", "HD+", playlistUrl, type = ExtractorLinkType.M3U8) {
+                    this.referer = watchUrl
+                })
+            }
         }
 
         return true
